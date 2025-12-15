@@ -1,39 +1,50 @@
+# module.py
 import base64
 from pathlib import Path
 
-# Base directory where this module.py lives
+# Base directory where this file lives
 BASE_DIR = Path(__file__).resolve().parent
 
 # Temp folder for saving decoded images
-TEMP_DIR = BASE_DIR / "temp"   # will be created automatically
+TEMP_DIR = BASE_DIR / "temp"
 
 
-def process_data(data):
+def process_data(base64_string: str, file_id: str = "image") -> str:
     """
-    Expects a dict:
-    {
-        "id": "<file name part, string>",
-        "String": "<base64 image string>"
-    }
+    Decode a base64-encoded image string and save it as <file_id>.png
+    inside the 'temp' folder.
 
-    Saves the base64 string as <id>.png inside temp/ folder.
-    Returns the saved file path as string.
+    Parameters
+    ----------
+    base64_string : str
+        Raw base64 image data. Can optionally include a data URL prefix
+        like 'data:image/png;base64,XXXX'.
+    file_id : str
+        Logical ID used for the filename. The final path will be:
+            <project_root>/temp/<file_id>.png
+
+    Returns
+    -------
+    str
+        Full path to the saved image file.
     """
-    # Ensure temp folder exists
-    TEMP_DIR.mkdir(exist_ok=True)
+    if not isinstance(base64_string, str) or not base64_string.strip():
+        raise ValueError("base64_string must be a non-empty string")
 
-    file_id = data["id"]
-    b64_string = data["String"]
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-    # If base64 comes with a prefix like "data:image/png;base64,XXXX"
-    # you can optionally strip that. If you don't need this, you can remove this block.
+    b64_string = base64_string.strip()
+
+    # If base64 comes as: "data:image/png;base64,AAAA..."
     if "," in b64_string and "base64" in b64_string[:50]:
         b64_string = b64_string.split(",", 1)[1]
 
-    # Decode base64 and write to file
-    image_bytes = base64.b64decode(b64_string)
+    try:
+        image_bytes = base64.b64decode(b64_string, validate=True)
+    except Exception as e:
+        raise ValueError(f"Invalid base64 image data: {e}") from e
+
     file_path = TEMP_DIR / f"{file_id}.png"
     file_path.write_bytes(image_bytes)
 
-    # Returning the file path so app.py can send it back if needed
     return str(file_path)
